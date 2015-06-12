@@ -17,8 +17,9 @@ LICENSE file in the root of the Project.
 <?import gndata.app.ui.util.converter.LiteralConverter?>
 <?import gndata.app.ui.util.converter.PropertyStringConverter?>
 <?import gndata.app.ui.util.DeleteButtonCellFactory?>
-<?import gndata.app.ui.util.converter.JenaPropertyClassStringConverter?>
+<?import gndata.app.ui.util.converter.PropertyOntClassStringConverter?>
 
+<?import gndata.app.ui.util.converter.DataTypeStringConverter?>
 <BorderPane xmlns:fx="http://javafx.com/fxml/1"
          xmlns="http://javafx.com/javafx/8"
          fx:controller="gndata.app.ui.metadata.manage.AddRDFInstanceCtrl">
@@ -41,12 +42,12 @@ LICENSE file in the root of the Project.
             <children>
                 <ComboBox fx:id="newClassFXML" >
                     <converter>
-                        <JenaPropertyClassStringConverter/>
+                        <PropertyOntClassStringConverter />
                     </converter>
                 </ComboBox>
                 <fx:script>
                     newClassFXML.getSelectionModel().select(controller.getPreSelNewClass())
-                    newClassFXML.itemsProperty().bindBidirectional(controller.newClassesProperty())
+                    newClassFXML.setItems(controller.getNewClassesList())
                     controller.selectedNewClassProperty().bind(newClassFXML.getSelectionModel().selectedItemProperty())
                 </fx:script>
 
@@ -72,13 +73,13 @@ LICENSE file in the root of the Project.
                         </TableColumn>
                         <TableColumn text="Delete">
                             <cellFactory>
-                                <DeleteButtonCellFactory/>
+                                <DeleteButtonCellFactory />
                             </cellFactory>
                         </TableColumn>
                     </columns>
                 </TableView>
                 <fx:script>
-                    newPredicatesFXML.itemsProperty().bindBidirectional(controller.newPredicatesProperty())
+                    newPredicatesFXML.setItems(controller.getNewPredicatesList())
                 </fx:script>
 
                 <Label fx:id="addPredicateLabel" text="Add additional property" styleClass="dialog-addLabel"/>
@@ -94,6 +95,11 @@ LICENSE file in the root of the Project.
                                 <PropertyStringConverter/>
                             </converter>
                         </ComboBox>
+                        <ComboBox fx:id="addPredicateTypeFXML">
+                            <converter>
+                                <DataTypeStringConverter />
+                            </converter>
+                        </ComboBox>
                         <TextField fx:id="addPredicateValue">
                             <textFormatter>
                                 <TextFormatter valueConverter="$litConv" filter="$litFilter" />
@@ -102,8 +108,11 @@ LICENSE file in the root of the Project.
                         <Button text="Add" onAction="#addDataProperty"/>
 
                         <fx:script>
-                            addPredicate.itemsProperty().bindBidirectional(controller.additionalPredicatesProperty())
+                            addPredicate.setItems(controller.getAdditionalPredicatesList())
                             controller.selectedPredicateProperty().bind(addPredicate.getSelectionModel().selectedItemProperty())
+
+                            addPredicateTypeFXML.setItems(controller.getAddPredicateTypes())
+                            controller.selectedAddPredTypeProperty().bind(addPredicateTypeFXML.getSelectionModel().selectedItemProperty())
 
                             litFilter.typeProperty().bindBidirectional(controller.addPredTypeProperty())
                             litConv.typeProperty().bindBidirectional(controller.addPredTypeProperty())

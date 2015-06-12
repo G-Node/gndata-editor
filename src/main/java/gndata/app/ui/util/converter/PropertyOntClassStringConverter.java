@@ -15,21 +15,20 @@ import org.apache.commons.lang3.tuple.Pair;
 
 /**
  * Class handling the displayed text when a Jena Resource item in a
- * combo box has been selected
+ * ComboBox has been selected
  */
-public class JenaPropertyClassStringConverter extends StringConverter<Pair<ObjectProperty, OntClass>> {
+public class PropertyOntClassStringConverter extends StringConverter<Pair<ObjectProperty, OntClass>> {
 
-    public JenaPropertyClassStringConverter() {}
+    public PropertyOntClassStringConverter() {}
 
     @Override
     public String toString(Pair<ObjectProperty, OntClass> pcPair) {
-        return pcPair == null ? null : pcPair.getValue().getLocalName() +" (link by "+pcPair.getKey().getLocalName() +")";
+        return pcPair.getValue().getLocalName() +" (link by "+pcPair.getKey().getLocalName() +")";
     }
 
     @Override
     public Pair<ObjectProperty, OntClass> fromString(String str) {
         return null;
     }
-
 
 }

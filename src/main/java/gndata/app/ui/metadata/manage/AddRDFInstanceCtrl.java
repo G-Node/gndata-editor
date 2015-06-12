@@ -16,7 +16,6 @@ import javafx.beans.property.ObjectProperty;
 import javafx.collections.*;
 import javafx.event.ActionEvent;
 import javafx.fxml.*;
-import javafx.geometry.Insets;
 
 import com.hp.hpl.jena.datatypes.RDFDatatype;
 import com.hp.hpl.jena.ontology.*;
@@ -38,22 +37,21 @@ public class AddRDFInstanceCtrl extends DialogCtrl implements Initializable {
     private final MetadataNavState navState;
     private final OntologyHelper oh;
 
-    private final ObjectProperty<Insets> currInsets;
     private final StringProperty labelText;
 
     private final Resource preSelNewClass;
     private final ObservableList<Pair<com.hp.hpl.jena.ontology.ObjectProperty, OntClass>> newClassesList;
-    private final ObjectProperty<ObservableList<Pair<com.hp.hpl.jena.ontology.ObjectProperty, OntClass>>> newClasses;
     private final ObjectProperty<Pair<com.hp.hpl.jena.ontology.ObjectProperty, OntClass>> selectedNewClass;
 
-
     private final ObservableList<DataPropertyTableItem> newPredicatesList;
-    private final ObjectProperty<ObservableList<DataPropertyTableItem>> newPredicates;
 
     private final ObservableList<DatatypeProperty> additionalPredicatesList;
-    private final ObjectProperty<ObservableList<DatatypeProperty>> additionalPredicates;
     private final ObjectProperty<DatatypeProperty> selectedPredicate;
+
     private final ObjectProperty<RDFDatatype> addPredType;
+    private final ObservableList<RDFDatatype> addPredicateType;
+    private final ObjectProperty<RDFDatatype> selAddPredType;
+
     private final StringProperty addPredValue;
     private final StringProperty addPredPromptText;
 
@@ -63,24 +61,21 @@ public class AddRDFInstanceCtrl extends DialogCtrl implements Initializable {
         projectState = projState;
         navState = navigationState;
         oh = projectState.getMetadata().ontmanager;
-
         preSelNewClass = extRes;
 
-        currInsets = new SimpleObjectProperty<>(new Insets(5));
         labelText = new SimpleStringProperty();
 
         newClassesList = FXCollections.observableArrayList();
-        newClasses = new SimpleObjectProperty<>();
         selectedNewClass = new SimpleObjectProperty<>();
 
         newPredicatesList = FXCollections.observableArrayList();
-        newPredicates = new SimpleObjectProperty<>();
 
         additionalPredicatesList = FXCollections.observableArrayList();
-        additionalPredicates = new SimpleObjectProperty<>();
         selectedPredicate = new SimpleObjectProperty<>();
         addPredValue = new SimpleStringProperty();
         addPredType = new SimpleObjectProperty<>();
+        selAddPredType = new SimpleObjectProperty<>();
+        addPredicateType = FXCollections.observableArrayList();
         addPredPromptText = new SimpleStringProperty();
 
         // Update the contents of the DataProperty table, if a new class has been selected
@@ -92,11 +87,12 @@ public class AddRDFInstanceCtrl extends DialogCtrl implements Initializable {
 
                 oh.listDatatypeProperties(selectedNewClass.get().getValue()).stream()
                         .forEach(c -> {
-                            //TODO take care of the case of multiple datatypes
                             Set<RDFDatatype> dts = oh.getRange(c.asDatatypeProperty());
-                            RDFDatatype dt = dts.iterator().next();
-                            newPredicatesList.add(new DataPropertyTableItem(c.asProperty(), dt));
+                            newPredicatesList.add(new DataPropertyTableItem(dts, c.asDatatypeProperty(), dts.iterator().next()));
                         });
+
+                // reset add new DataProperty TextField
+                addPredValue.set("");
             }
         });
 
@@ -104,12 +100,13 @@ public class AddRDFInstanceCtrl extends DialogCtrl implements Initializable {
         selectedPredicate.addListener((observable, oldValue, newValue) -> {
             addPredPromptText.set("");
             if (observable != null && newValue != null) {
-                //TODO take care of the case of multiple datatypes
-                Set<RDFDatatype> dts = oh.getRange(observable.getValue());
-                RDFDatatype dt = dts.iterator().next();
-
+                addPredicateType.clear();
+                // Retrieve all available RDF DataTypes of the selected DataProperty
+                addPredicateType.setAll(oh.getRange(observable.getValue()));
+                // Select the first available DataType
+                RDFDatatype dt = addPredicateType.iterator().next();
                 addPredType.set(dt);
-                addPredPromptText.set("Enter " + (dt == null ? "String" : dt.getJavaClass().getSimpleName()) + " value");
+                addPredPromptText.set("Enter a " + (dt == null ? "String" : dt.getJavaClass().getSimpleName()) + " value");
             }
         });
 
@@ -117,20 +114,33 @@ public class AddRDFInstanceCtrl extends DialogCtrl implements Initializable {
         newPredicatesList.addListener((ListChangeListener<DataPropertyTableItem>) change -> {
             // Reset list of additional DataType properties
             additionalPredicatesList.clear();
+            // Reset list of RDF DataTypes
+            addPredicateType.clear();
 
-            // Get all available datatype properties for selected class
+            // Get all available DataType properties for selected class
             oh.listDatatypeProperties(selectedNewClass.get().getValue()).stream()
                     .forEach(c -> additionalPredicatesList.add(c.asDatatypeProperty()));
 
-            // TODO implement check for DataType Properties which can be added
-            // TODO multiple times
-            // Remove all datatype properties which already exist in the table
+            // TODO implement check for DataType Properties which can be added multiple times
+            // Remove all DataType properties which already exist in the table
             newPredicatesList.stream().forEach(c -> {
-                if(additionalPredicatesList.contains(c.getProperty())){
+                if (additionalPredicatesList.contains(c.getProperty())) {
                     additionalPredicatesList.remove(c.getProperty());
                 }
             });
         });
+
+        // Listen on changes of the selected DataType property in the
+        // additional DataProperties line and change the value of addPredType
+        // accordingly, since it is required to set the TextFilter of the
+        // value TextField.
+        selAddPredType.addListener((observable, oldValue, newValue) -> {
+            if (observable != null && newValue != null) {
+                addPredType.set(newValue);
+                addPredPromptText.set("Enter a " + newValue.getJavaClass().getSimpleName() + " value");
+            }
+        });
+
     }
 
     @Override
@@ -146,15 +156,6 @@ public class AddRDFInstanceCtrl extends DialogCtrl implements Initializable {
         oh.listRelated(navState.getSelectedParent().getResource())
                 .forEach(newClassesList::add);
 
-        // Initialize new class ComboBox list wrapper with an observable list of available RDF classes
-        newClasses.set(newClassesList);
-
-        // Initialize data property TableView list wrapper with an observable list of existing DataProperties
-        newPredicates.set(newPredicatesList);
-
-        // Initialize add data property ComboBox list wrapper with an observable list of additionally addable data properties
-        additionalPredicates.set(additionalPredicatesList);
-
     }
 
 
@@ -162,14 +163,12 @@ public class AddRDFInstanceCtrl extends DialogCtrl implements Initializable {
     // FXML binding properties
     // -------------------------------------------
 
-    // Insets for padding
-    public final ObjectProperty<Insets> insetProperty() { return currInsets; }
     // Main label text
     public final StringProperty labelTextProperty() { return labelText; }
 
     // List of available classes for adding a new instance
-    public final ObjectProperty<ObservableList<Pair<com.hp.hpl.jena.ontology.ObjectProperty, OntClass>>> newClassesProperty() {
-        return newClasses;
+    public final ObservableList<Pair<com.hp.hpl.jena.ontology.ObjectProperty, OntClass>> getNewClassesList() {
+        return newClassesList;
     }
     // Retrieve selected class from the UI element
     public final ObjectProperty<Pair<com.hp.hpl.jena.ontology.ObjectProperty, OntClass>> selectedNewClassProperty() {
@@ -180,8 +179,8 @@ public class AddRDFInstanceCtrl extends DialogCtrl implements Initializable {
 
         List<Pair<com.hp.hpl.jena.ontology.ObjectProperty, OntClass>> getRelatedList = new ArrayList<>();
         // Pre-set selection if provided and available
-        // This is required, since the object property which should connect the
-        // pre-selected ontology class to the parent resource is potentially not unique and
+        // This is required, since the object property which should connect the pre-selected
+        // ontology class to the parent resource is potentially not unique and
         // not known at this point.
         if(preSelNewClass != null) {
             getRelatedList = oh.listRelated(navState.getSelectedParent().getResource())
@@ -194,11 +193,15 @@ public class AddRDFInstanceCtrl extends DialogCtrl implements Initializable {
     }
 
     // List of existing data properties for the currently selected new class
-    public final ObjectProperty<ObservableList<DataPropertyTableItem>> newPredicatesProperty() { return newPredicates; }
+    public final ObservableList<DataPropertyTableItem> getNewPredicatesList() { return newPredicatesList; }
     // Adding additional data properties for the currently selected new class
-    public final ObjectProperty<ObservableList<DatatypeProperty>> additionalPredicatesProperty() { return additionalPredicates; }
+    public final ObservableList<DatatypeProperty> getAdditionalPredicatesList() { return additionalPredicatesList; }
+
     // Retrieve selected predicate from the UI element
     public final ObjectProperty<DatatypeProperty> selectedPredicateProperty() { return selectedPredicate; }
+    public final ObservableList<RDFDatatype> getAddPredicateTypes() { return addPredicateType; }
+    // Retrieve selected RDF DataType from the UI element
+    public final ObjectProperty<RDFDatatype> selectedAddPredTypeProperty() { return selAddPredType; }
     // Provide the RDF DataType of a selected predicate to the UI elements
     public final ObjectProperty<RDFDatatype> addPredTypeProperty() { return addPredType; }
     public final StringProperty addPredicateValueProperty() { return addPredValue; }
@@ -231,7 +234,7 @@ public class AddRDFInstanceCtrl extends DialogCtrl implements Initializable {
                 });
 
         // TODO find better solution to deal with completely empty property values
-        if (tmpModel.size()>0) {
+        if (tmpModel.size() > 0) {
             // Connect the new class instance to the parent resource
             Property connectProperty = ResourceFactory.createProperty(selectedNewClass.get().getKey().getURI());
             Statement connectStatement = ResourceFactory.createStatement(parentResource, connectProperty, newResource);
@@ -257,20 +260,19 @@ public class AddRDFInstanceCtrl extends DialogCtrl implements Initializable {
      */
     public void addDataProperty() {
 
-        if (selectedPredicate.get() != null && addPredValue.get() != null && ! addPredValue.get().isEmpty()) {
+        if (selectedPredicate.get() != null && addPredValue.get() != null && !addPredValue.get().isEmpty()) {
 
-            //TODO take care of the case of multiple datatypes
             Set<RDFDatatype> dts = oh.getRange(selectedPredicate.get());
-            RDFDatatype dt = dts.iterator().next();
+            RDFDatatype dt = addPredType.get();
 
-            DataPropertyTableItem newDTI = new DataPropertyTableItem(selectedPredicate.get(), dt);
+            DataPropertyTableItem newDTI = new DataPropertyTableItem(dts, selectedPredicate.get(), dt);
             newDTI.setTextFieldValue(addPredValue.get());
             newPredicatesList.add(newDTI);
         }
 
-        // Cleanup after DataProperty has been added
-        // TODO reset selected predicate
-        //selectedPredicate.set(null);
+        // Cleanup after the new DataProperty has been added
+        addPredicateType.clear();
+        // Reset add new DataProperty TextField
         addPredValue.set("");
     }
 

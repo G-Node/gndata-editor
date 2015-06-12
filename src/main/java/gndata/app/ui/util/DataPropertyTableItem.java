@@ -8,11 +8,14 @@
 
 package gndata.app.ui.util;
 
+import java.util.Set;
+import javafx.beans.value.*;
+import javafx.collections.*;
 import javafx.scene.control.*;
 
 import com.hp.hpl.jena.datatypes.RDFDatatype;
-import com.hp.hpl.jena.rdf.model.*;
-import gndata.app.ui.util.converter.LiteralConverter;
+import com.hp.hpl.jena.ontology.DatatypeProperty;
+import gndata.app.ui.util.converter.*;
 import gndata.app.ui.util.filter.LiteralFilter;
 
 /**
@@ -20,23 +23,43 @@ import gndata.app.ui.util.filter.LiteralFilter;
  */
 public final class DataPropertyTableItem {
 
-    private final Property dataProperty;
-    private final RDFDatatype dataType;
+    private final DatatypeProperty dataProperty;
     private final TextField editValue = new TextField();
+    private final ComboBox<RDFDatatype> dataTypeBox = new ComboBox<>();
 
-    public DataPropertyTableItem(Property property, RDFDatatype dt) {
+    public DataPropertyTableItem(Set<RDFDatatype> dts, DatatypeProperty property, RDFDatatype dt) {
+
         dataProperty = property;
-        dataType = dt;
-        editValue.setTextFormatter(new TextFormatter(new LiteralConverter(dt), null, new LiteralFilter(dt)));
-        editValue.setPromptText(dt.getJavaClass().getSimpleName() +" value");
+
+        final ObservableList<RDFDatatype> dataTypeList = FXCollections.observableArrayList();
+        dataTypeList.addAll(dts);
+        dataTypeBox.setItems(dataTypeList);
+
+        dataTypeBox.setConverter(new DataTypeStringConverter());
+        dataTypeBox.getSelectionModel().selectedItemProperty().addListener(new ChangeListener<RDFDatatype>() {
+            @Override
+            public void changed(ObservableValue<? extends RDFDatatype> observable, RDFDatatype oldValue, RDFDatatype newValue) {
+                if (newValue != null) {
+                    editValue.setTextFormatter(new TextFormatter(new LiteralConverter(newValue), null, new LiteralFilter(newValue)));
+                    editValue.setPromptText(newValue.getJavaClass().getSimpleName() + " value");
+                }
+            }
+        });
+        dataTypeBox.getSelectionModel().select(dt);
+
     }
 
-    public Property getProperty() {
+
+    // -------------------------------------
+    // CellValueFactory getter and setter
+    // -------------------------------------
+
+    public DatatypeProperty getProperty() {
         return dataProperty;
     }
 
     public RDFDatatype getDataType() {
-        return dataType;
+        return dataTypeBox.getSelectionModel().getSelectedItem();
     }
 
     public void setTextFieldValue(String value) {
@@ -47,9 +70,6 @@ public final class DataPropertyTableItem {
         return editValue.getText();
     }
 
-    // -------------------------------------
-    // CellValueFactory getter
-    // -------------------------------------
     public String getPredicate() {
         return dataProperty.getLocalName();
     }
@@ -58,7 +78,8 @@ public final class DataPropertyTableItem {
         return editValue;
     }
 
-    public String getType() {
-        return dataType.getJavaClass().getSimpleName();
+    public ComboBox<RDFDatatype> getType() {
+        return dataTypeBox;
     }
+
 }
